@@ -62,6 +62,10 @@
 `ANYROUTER_ACCESS_TOKEN` 或 `AGENTROUTER_ACCESS_TOKEN`。独立 Secret 会覆盖
 `ANYROUTER_ACCOUNTS` 中对应服务商的认证信息，不需要重写整段账号 JSON。
 
+若站点未提供账户访问令牌界面，也可以添加 `ANYROUTER_SESSION_COOKIE` 或
+`AGENTROUTER_SESSION_COOKIE`，值为浏览器 Application/存储中名为 `session`
+的 Cookie 值。会话 Cookie 仍会过期，长期稳定性低于账户访问令牌。
+
 ### 4. 多账号配置格式
 
 支持单个与多个账号配置，可选 `name` 和 `provider` 字段：

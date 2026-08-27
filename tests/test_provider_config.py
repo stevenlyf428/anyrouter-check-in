@@ -110,3 +110,26 @@ def test_provider_access_token_secret_can_supply_missing_account_auth(monkeypatc
 	assert accounts is not None
 	assert accounts[0].access_token == 'rotated-anyrouter-token'
 	assert accounts[0].has_access_token() is True
+
+
+def test_provider_session_cookie_secret_overrides_stale_cookie(monkeypatch):
+	monkeypatch.setenv(
+		'ANYROUTER_ACCOUNTS',
+		json.dumps(
+			[
+				{
+					'name': 'AnyRouter account',
+					'provider': 'anyrouter',
+					'cookies': {'session': 'expired-session'},
+					'api_user': '16',
+				}
+			]
+		),
+	)
+	monkeypatch.setenv('ANYROUTER_SESSION_COOKIE', 'fresh-session')
+
+	accounts = load_accounts_config()
+
+	assert accounts is not None
+	assert accounts[0].cookies == {'session': 'fresh-session'}
+	assert accounts[0].api_user == '16'

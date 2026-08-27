@@ -204,6 +204,10 @@ def load_accounts_config() -> list[AccountConfig] | None:
 		'anyrouter': os.getenv('ANYROUTER_ACCESS_TOKEN'),
 		'agentrouter': os.getenv('AGENTROUTER_ACCESS_TOKEN'),
 	}
+	session_cookie_overrides = {
+		'anyrouter': os.getenv('ANYROUTER_SESSION_COOKIE'),
+		'agentrouter': os.getenv('AGENTROUTER_SESSION_COOKIE'),
+	}
 
 	try:
 		if not isinstance(accounts_data, list):
@@ -220,6 +224,9 @@ def load_accounts_config() -> list[AccountConfig] | None:
 			access_token_override = access_token_overrides.get(provider)
 			if access_token_override:
 				access_token_override = access_token_override.strip()
+			session_cookie_override = session_cookie_overrides.get(provider)
+			if session_cookie_override:
+				session_cookie_override = session_cookie_override.strip()
 
 			if 'api_user' not in account_dict:
 				has_login = account_dict.get('email') and account_dict.get('password')
@@ -231,7 +238,7 @@ def load_accounts_config() -> list[AccountConfig] | None:
 					)
 					return None
 
-			has_cookies = 'cookies' in account_dict and account_dict['cookies']
+			has_cookies = ('cookies' in account_dict and account_dict['cookies']) or session_cookie_override
 			has_login = account_dict.get('email') and account_dict.get('password')
 			has_access_token = account_dict.get('access_token') or access_token_override
 
@@ -246,6 +253,8 @@ def load_accounts_config() -> list[AccountConfig] | None:
 			account = AccountConfig.from_dict(account_dict, i)
 			if access_token_override:
 				account.access_token = access_token_override
+			if session_cookie_override:
+				account.cookies = {'session': session_cookie_override}
 			accounts.append(account)
 
 		return accounts
