@@ -373,22 +373,24 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 	print(f'[INFO] {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
 	if provider_config.use_proxy and not get_proxy_server(use_proxy=True):
 		print(
-			f'[FAILED] {account_name}: Provider requires a proxy, but CHECKIN_PROXY_URL is not configured. '
-			'Set GitHub Secret PROXY_SUBSCRIPTION_URL and rerun.'
+			f'[WARN] {account_name}: CHECKIN_PROXY_URL is not configured; trying the provider directly. '
+			'Configure PROXY_SUBSCRIPTION_URL only if the direct connection is blocked.'
+		)
+
+	if provider_config.checks_in_during_login() and not account.has_login_credentials():
+		print(
+			f'[FAILED] {account_name}: This provider awards the daily credit only after a fresh login. '
+			'Access tokens and session cookies can read the account but cannot trigger the claim. '
+			'Configure AGENTROUTER_USERNAME and AGENTROUTER_PASSWORD.'
 		)
 		return False, None, None
 
-	# 账户访问令牌优先，其次是邮箱密码，最后兼容旧 Session
+	# 新登录优先（AgentRouter 依赖登录触发签到），其次是访问令牌，最后兼容旧 Session
 	all_cookies = None
 	resolved_api_user: str | None = None
 	resolved_access_token: str | None = None
 	auth_method = None
-	if account.has_access_token():
-		assert account.access_token is not None
-		resolved_access_token = account.access_token.strip()
-		all_cookies = await prepare_cookies(account_name, provider_config, {})
-		auth_method = 'access token'
-	elif account.has_login_credentials():
+	if account.has_login_credentials():
 		print(f'[INFO] {account_name}: Attempting email/password login (priority)...')
 		assert account.email is not None and account.password is not None
 		login_result = await login_with_credentials(
@@ -405,6 +407,11 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		else:
 			print(f'[FAILED] {account_name}: Email/password login failed, will not use stale session cookies')
 			return False, None, None
+	elif account.has_access_token():
+		assert account.access_token is not None
+		resolved_access_token = account.access_token.strip()
+		all_cookies = await prepare_cookies(account_name, provider_config, {})
+		auth_method = 'access token'
 	else:
 		user_cookies = parse_cookies(account.cookies)
 		if not user_cookies:
@@ -426,6 +433,7 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		api_user_override=resolved_api_user,
 		access_token_override=resolved_access_token,
 		use_proxy=provider_config.use_proxy,
+		login_check_in_completed=provider_config.checks_in_during_login() and auth_method == 'email/password',
 	)
 
 
@@ -438,6 +446,7 @@ def run_check_in_requests(
 	api_user_override: str | None = None,
 	access_token_override: str | None = None,
 	use_proxy: bool = False,
+	login_check_in_completed: bool = False,
 ) -> tuple[bool, dict | None, dict | None]:
 	"""执行 HTTP 签到请求（同步，避免在 async 上下文中使用阻塞 httpx）。"""
 	try:
@@ -487,9 +496,16 @@ def run_check_in_requests(
 				user_info_after = get_user_info(client, headers, user_info_url)
 				return success, user_info_before, user_info_after
 
+			if not login_check_in_completed:
+				print(
+					f'[FAILED] {account_name}: Provider is configured for login-triggered check-in, '
+					'but no fresh login was completed'
+				)
+				return False, user_info_before, user_info_before
+
 			user_info_after = get_user_info(client, headers, user_info_url)
 			if user_info_after and user_info_after.get('success'):
-				print(f'[INFO] {account_name}: Check-in completed automatically (triggered by user info request)')
+				print(f'[SUCCESS] {account_name}: Fresh login completed; daily credit claim was triggered')
 				return True, user_info_before, user_info_after
 			error = user_info_after.get('error', 'Unknown error') if user_info_after else 'Unknown error'
 			print(f'[FAILED] {account_name}: Auto check-in failed - {error}')

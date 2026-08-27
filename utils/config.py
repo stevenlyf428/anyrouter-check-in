@@ -71,6 +71,10 @@ class ProviderConfig:
 		"""判断是否需要手动调用签到接口"""
 		return self.sign_in_path is not None
 
+	def checks_in_during_login(self) -> bool:
+		"""是否必须通过一次新的登录触发签到"""
+		return self.sign_in_path is None
+
 
 @dataclass
 class AppConfig:
@@ -208,6 +212,12 @@ def load_accounts_config() -> list[AccountConfig] | None:
 		'anyrouter': os.getenv('ANYROUTER_SESSION_COOKIE'),
 		'agentrouter': os.getenv('AGENTROUTER_SESSION_COOKIE'),
 	}
+	login_credential_overrides = {
+		'agentrouter': (
+			os.getenv('AGENTROUTER_USERNAME'),
+			os.getenv('AGENTROUTER_PASSWORD'),
+		),
+	}
 
 	try:
 		if not isinstance(accounts_data, list):
@@ -227,9 +237,21 @@ def load_accounts_config() -> list[AccountConfig] | None:
 			session_cookie_override = session_cookie_overrides.get(provider)
 			if session_cookie_override:
 				session_cookie_override = session_cookie_override.strip()
+			username_override, password_override = login_credential_overrides.get(provider, (None, None))
+			if username_override:
+				username_override = username_override.strip()
+			if password_override:
+				password_override = password_override.strip()
+			if bool(username_override) != bool(password_override):
+				print(
+					f'ERROR: Account {i + 1} requires both {provider.upper()}_USERNAME and {provider.upper()}_PASSWORD'
+				)
+				return None
 
 			if 'api_user' not in account_dict:
-				has_login = account_dict.get('email') and account_dict.get('password')
+				has_login = (account_dict.get('email') and account_dict.get('password')) or (
+					username_override and password_override
+				)
 				has_access_token = account_dict.get('access_token') or access_token_override
 				if not has_login and not has_access_token:
 					print(
@@ -239,7 +261,9 @@ def load_accounts_config() -> list[AccountConfig] | None:
 					return None
 
 			has_cookies = ('cookies' in account_dict and account_dict['cookies']) or session_cookie_override
-			has_login = account_dict.get('email') and account_dict.get('password')
+			has_login = (account_dict.get('email') and account_dict.get('password')) or (
+				username_override and password_override
+			)
 			has_access_token = account_dict.get('access_token') or access_token_override
 
 			if not has_cookies and not has_login and not has_access_token:
@@ -255,6 +279,9 @@ def load_accounts_config() -> list[AccountConfig] | None:
 				account.access_token = access_token_override
 			if session_cookie_override:
 				account.cookies = {'session': session_cookie_override}
+			if username_override and password_override:
+				account.email = username_override
+				account.password = password_override
 			accounts.append(account)
 
 		return accounts

@@ -62,6 +62,15 @@
 `ANYROUTER_ACCESS_TOKEN` 或 `AGENTROUTER_ACCESS_TOKEN`。独立 Secret 会覆盖
 `ANYROUTER_ACCOUNTS` 中对应服务商的认证信息，不需要重写整段账号 JSON。
 
+AgentRouter 例外：该站明确要求“退出后重新登录”才发放每日 $25 额度，
+所以访问令牌或 Session 只能读取账号，不能完成签到。请另外添加：
+
+- `AGENTROUTER_USERNAME`：AgentRouter 站内用户名（不是 GitHub 邮箱）
+- `AGENTROUTER_PASSWORD`：AgentRouter 的独立站内密码（不要填写 GitHub 密码）
+
+两项必须同时存在。仅通过 GitHub OAuth 创建的账号，需要先在 AgentRouter 绑定邮箱，
+再通过“忘记密码”建立独立站内密码。
+
 若站点未提供账户访问令牌界面，也可以添加 `ANYROUTER_SESSION_COOKIE` 或
 `AGENTROUTER_SESSION_COOKIE`，值为浏览器 Application/存储中名为 `session`
 的 Cookie 值。会话 Cookie 仍会过期，长期稳定性低于账户访问令牌。
@@ -88,7 +97,7 @@
 **字段说明**：
 
 - `email` + `password`：推荐的浏览器登录方式，登录成功后会自动获取 cookies 与用户标识
-- `access_token`：账户访问令牌，适合只绑定 GitHub/OAuth 的账号，不依赖短期 Session
+- `access_token`：账户访问令牌，不依赖短期 Session；但不能触发 AgentRouter 的登录签到
 - `cookies`：兼容旧版的 session cookies 登录方式
 - `api_user`：session cookies 登录时用于请求头的 new-api-user 参数；邮箱密码登录可省略
 - `provider` (可选)：指定使用的服务商，默认为 `anyrouter`
@@ -270,7 +279,7 @@
   - `sign_in_path: "/api/user/sign_in"`
 - `agentrouter`：
   - `bypass_method: "waf_cookies"`（需要获取 `acw_tc`）
-  - `sign_in_path: null`（查询用户信息时自动签到）
+  - `sign_in_path: null`（必须完成一次新的站内用户名/密码登录来触发签到）
   - `use_proxy: true`
 
 **重要提示**：
@@ -280,7 +289,8 @@
 
 ## 代理配置（可选）
 
-内置的 `agentrouter` 默认 `use_proxy: true`。如果你的运行环境访问该平台不稳定，可以在 GitHub Actions 中配置 mihomo 订阅代理。
+内置的 `agentrouter` 默认 `use_proxy: true`。没有代理时脚本会先尝试直连；
+如果 GitHub Runner 被站点 WAF 拦截，再配置 mihomo 订阅代理。
 
 在仓库 Settings -> Environments -> production -> Environment secrets 中添加：
 
@@ -358,7 +368,9 @@ PROVIDERS={"agentrouter":{"use_proxy":true}}
 3. API User 是否正确
 4. 网站是否更改了签到接口
 5. 查看 Actions 运行日志获取详细错误信息
-6. AgentRouter 在 GitHub Runner 上需要在 `production` 环境配置
+6. AgentRouter 必须配置 `AGENTROUTER_USERNAME` 与 `AGENTROUTER_PASSWORD`，
+   因为访问令牌和 Session 不会触发重新登录签到
+7. 如果 AgentRouter 直连被 WAF 拦截，再在 `production` 环境配置
    `PROXY_SUBSCRIPTION_URL`；脚本只把代理用于标记为 `use_proxy` 的服务商
 
 ## 本地开发环境设置

@@ -133,3 +133,38 @@ def test_provider_session_cookie_secret_overrides_stale_cookie(monkeypatch):
 	assert accounts is not None
 	assert accounts[0].cookies == {'session': 'fresh-session'}
 	assert accounts[0].api_user == '16'
+
+
+def test_agentrouter_login_secrets_override_token_only_account(monkeypatch):
+	monkeypatch.setenv(
+		'ANYROUTER_ACCOUNTS',
+		json.dumps(
+			[
+				{
+					'name': 'AgentRouter account',
+					'provider': 'agentrouter',
+					'access_token': 'read-only-account-token',
+				}
+			]
+		),
+	)
+	monkeypatch.setenv('AGENTROUTER_USERNAME', 'github_152183')
+	monkeypatch.setenv('AGENTROUTER_PASSWORD', 'dedicated-agentrouter-password')
+
+	accounts = load_accounts_config()
+
+	assert accounts is not None
+	assert accounts[0].email == 'github_152183'
+	assert accounts[0].password == 'dedicated-agentrouter-password'
+	assert accounts[0].has_login_credentials() is True
+
+
+def test_agentrouter_login_secrets_must_be_configured_as_a_pair(monkeypatch):
+	monkeypatch.setenv(
+		'ANYROUTER_ACCOUNTS',
+		json.dumps([{'name': 'AgentRouter account', 'provider': 'agentrouter', 'api_user': '152183'}]),
+	)
+	monkeypatch.setenv('AGENTROUTER_USERNAME', 'github_152183')
+	monkeypatch.delenv('AGENTROUTER_PASSWORD', raising=False)
+
+	assert load_accounts_config() is None
