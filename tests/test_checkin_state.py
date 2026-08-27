@@ -65,3 +65,25 @@ async def test_access_token_auth_allows_empty_cookie_jar(monkeypatch):
 
 	assert result == (True, None, None)
 	assert captured == {'cookies': {}, 'access_token': 'account-access-token'}
+
+
+@pytest.mark.asyncio
+async def test_proxy_required_provider_stops_without_proxy(monkeypatch):
+	monkeypatch.delenv('CHECKIN_PROXY_URL', raising=False)
+	account = AccountConfig(
+		cookies=None,
+		provider='agentrouter',
+		name='AgentRouter account',
+		access_token='account-access-token',
+	)
+	provider = ProviderConfig(
+		name='agentrouter',
+		domain='https://agentrouter.org',
+		sign_in_path=None,
+		use_proxy=True,
+	)
+	app_config = AppConfig(providers={'agentrouter': provider})
+
+	result = await check_in_account(account, 0, app_config)
+
+	assert result == (False, None, None)

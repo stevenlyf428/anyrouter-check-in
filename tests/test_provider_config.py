@@ -11,7 +11,7 @@ def test_builtin_provider_profile_persistence_defaults(monkeypatch):
 	assert config.providers['anyrouter'].persist_profile is True
 	assert config.providers['agentrouter'].persist_profile is False
 	assert config.providers['agentrouter'].domain == 'https://agentrouter.org'
-	assert config.providers['agentrouter'].use_proxy is False
+	assert config.providers['agentrouter'].use_proxy is True
 	assert config.providers['agentrouter'].bypass_method == 'waf_cookies'
 	assert config.providers['agentrouter'].waf_cookie_names == ['acw_tc']
 

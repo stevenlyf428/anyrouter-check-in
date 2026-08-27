@@ -371,6 +371,12 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		return False, None, None
 
 	print(f'[INFO] {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
+	if provider_config.use_proxy and not get_proxy_server(use_proxy=True):
+		print(
+			f'[FAILED] {account_name}: Provider requires a proxy, but CHECKIN_PROXY_URL is not configured. '
+			'Set GitHub Secret PROXY_SUBSCRIPTION_URL and rerun.'
+		)
+		return False, None, None
 
 	# 账户访问令牌优先，其次是邮箱密码，最后兼容旧 Session
 	all_cookies = None

@@ -354,6 +354,8 @@ PROVIDERS={"agentrouter":{"use_proxy":true}}
 3. API User 是否正确
 4. 网站是否更改了签到接口
 5. 查看 Actions 运行日志获取详细错误信息
+6. AgentRouter 在 GitHub Runner 上需要在 `production` 环境配置
+   `PROXY_SUBSCRIPTION_URL`；脚本只把代理用于标记为 `use_proxy` 的服务商
 
 ## 本地开发环境设置
 
