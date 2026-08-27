@@ -58,6 +58,10 @@
    - Name: `ANYROUTER_ACCOUNTS`
    - Value: 你的多账号配置数据
 
+如果只需要轮换某个站点的账户访问令牌，也可以额外添加
+`ANYROUTER_ACCESS_TOKEN` 或 `AGENTROUTER_ACCESS_TOKEN`。独立 Secret 会覆盖
+`ANYROUTER_ACCOUNTS` 中对应服务商的认证信息，不需要重写整段账号 JSON。
+
 ### 4. 多账号配置格式
 
 支持单个与多个账号配置，可选 `name` 和 `provider` 字段：

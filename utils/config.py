@@ -200,6 +200,11 @@ def load_accounts_config() -> list[AccountConfig] | None:
 		print('HINT: 常见原因 - 末尾多余逗号、使用了单引号、包含注释、或换行格式问题')
 		return None
 
+	access_token_overrides = {
+		'anyrouter': os.getenv('ANYROUTER_ACCESS_TOKEN'),
+		'agentrouter': os.getenv('AGENTROUTER_ACCESS_TOKEN'),
+	}
+
 	try:
 		if not isinstance(accounts_data, list):
 			print('ERROR: Account configuration must use array format [{}]')
@@ -211,9 +216,14 @@ def load_accounts_config() -> list[AccountConfig] | None:
 				print(f'ERROR: Account {i + 1} configuration format is incorrect')
 				return None
 
+			provider = account_dict.get('provider', 'anyrouter')
+			access_token_override = access_token_overrides.get(provider)
+			if access_token_override:
+				access_token_override = access_token_override.strip()
+
 			if 'api_user' not in account_dict:
 				has_login = account_dict.get('email') and account_dict.get('password')
-				has_access_token = account_dict.get('access_token')
+				has_access_token = account_dict.get('access_token') or access_token_override
 				if not has_login and not has_access_token:
 					print(
 						f'ERROR: Account {i + 1} missing required field (api_user) - '
@@ -223,7 +233,7 @@ def load_accounts_config() -> list[AccountConfig] | None:
 
 			has_cookies = 'cookies' in account_dict and account_dict['cookies']
 			has_login = account_dict.get('email') and account_dict.get('password')
-			has_access_token = account_dict.get('access_token')
+			has_access_token = account_dict.get('access_token') or access_token_override
 
 			if not has_cookies and not has_login and not has_access_token:
 				print(f'ERROR: Account {i + 1} must have cookies, email+password, or access_token')
@@ -233,7 +243,10 @@ def load_accounts_config() -> list[AccountConfig] | None:
 				print(f'ERROR: Account {i + 1} name field cannot be empty')
 				return None
 
-			accounts.append(AccountConfig.from_dict(account_dict, i))
+			account = AccountConfig.from_dict(account_dict, i)
+			if access_token_override:
+				account.access_token = access_token_override
+			accounts.append(account)
 
 		return accounts
 	except Exception as e:

@@ -72,3 +72,40 @@ def test_access_token_account_does_not_require_cookies_or_api_user(monkeypatch):
 	assert len(accounts) == 1
 	assert accounts[0].has_access_token() is True
 	assert accounts[0].access_token == 'account-access-token'
+
+
+def test_provider_access_token_secret_overrides_existing_account_auth(monkeypatch):
+	monkeypatch.setenv(
+		'ANYROUTER_ACCOUNTS',
+		json.dumps(
+			[
+				{
+					'name': 'AgentRouter account',
+					'provider': 'agentrouter',
+					'cookies': {'session': 'expired-session'},
+					'api_user': '152183',
+				}
+			]
+		),
+	)
+	monkeypatch.setenv('AGENTROUTER_ACCESS_TOKEN', 'rotated-agentrouter-token')
+
+	accounts = load_accounts_config()
+
+	assert accounts is not None
+	assert accounts[0].access_token == 'rotated-agentrouter-token'
+	assert accounts[0].has_access_token() is True
+
+
+def test_provider_access_token_secret_can_supply_missing_account_auth(monkeypatch):
+	monkeypatch.setenv(
+		'ANYROUTER_ACCOUNTS',
+		json.dumps([{'name': 'AnyRouter account', 'provider': 'anyrouter'}]),
+	)
+	monkeypatch.setenv('ANYROUTER_ACCESS_TOKEN', 'rotated-anyrouter-token')
+
+	accounts = load_accounts_config()
+
+	assert accounts is not None
+	assert accounts[0].access_token == 'rotated-anyrouter-token'
+	assert accounts[0].has_access_token() is True
