@@ -7,7 +7,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 import checkin
-from checkin import check_in_account, generate_balance_hash
+from checkin import check_in_account, generate_balance_hash, get_check_in_exit_code
 from utils.config import AccountConfig, AppConfig, ProviderConfig
 
 
@@ -36,6 +36,19 @@ def test_balance_hash_is_stable_for_equivalent_balances():
 	}
 
 	assert generate_balance_hash(left) == generate_balance_hash(right)
+
+
+@pytest.mark.parametrize(
+	('success_count', 'total_count', 'expected'),
+	[
+		(2, 2, 0),
+		(1, 2, 1),
+		(0, 2, 1),
+		(0, 0, 1),
+	],
+)
+def test_check_in_exit_code_requires_every_account_to_succeed(success_count, total_count, expected):
+	assert get_check_in_exit_code(success_count, total_count) == expected
 
 
 @pytest.mark.asyncio
