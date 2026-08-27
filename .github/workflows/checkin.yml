@@ -17,6 +17,7 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
       PYTHONUNBUFFERED: 1
+      CLOAKBROWSER_AUTO_UPDATE: 'false'
       DEBUG_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug == 'true' && 'true' || 'false' }}
     steps:
     - uses: actions/checkout@v6
@@ -134,6 +135,13 @@ jobs:
     - name: 停止代理
       if: always()
       run: bash scripts/stop_mihomo_proxy.sh
+
+    - name: 保存 CloakBrowser 二进制缓存
+      if: always() && steps.cloakbrowser-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ~/.cloakbrowser
+        key: ${{ runner.os }}-cloakbrowser-v1
 
     - name: 执行结果
       if: always()
