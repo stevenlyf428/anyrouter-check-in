@@ -117,10 +117,10 @@ async def get_waf_cookies_with_browser(
 		for cookie in cookies:
 			cookie_name = cookie.get('name')
 			cookie_value = cookie.get('value')
-			if cookie_name in required_cookies and cookie_value is not None:
+			if cookie_name and cookie_value is not None:
 				waf_cookies[cookie_name] = cookie_value
 
-		print(f'[INFO] {account_name}: Got {len(waf_cookies)} WAF cookies')
+		print(f'[INFO] {account_name}: Got {len(waf_cookies)} browser cookies for WAF requests')
 
 		missing_cookies = [c for c in required_cookies if c not in waf_cookies]
 
