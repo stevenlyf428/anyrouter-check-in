@@ -397,7 +397,7 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		all_cookies = await prepare_cookies(account_name, provider_config, user_cookies)
 		auth_method = 'session cookies'
 
-	if not all_cookies:
+	if all_cookies is None:
 		return False, None, None
 
 	print(f'[AUTH] {account_name}: Using auth method -> {auth_method}')

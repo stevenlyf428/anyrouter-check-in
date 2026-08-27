@@ -1,10 +1,14 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from checkin import generate_balance_hash
+import checkin
+from checkin import check_in_account, generate_balance_hash
+from utils.config import AccountConfig, AppConfig, ProviderConfig
 
 
 def test_balance_hash_changes_when_quota_changes():
@@ -32,3 +36,32 @@ def test_balance_hash_is_stable_for_equivalent_balances():
 	}
 
 	assert generate_balance_hash(left) == generate_balance_hash(right)
+
+
+@pytest.mark.asyncio
+async def test_access_token_auth_allows_empty_cookie_jar(monkeypatch):
+	account = AccountConfig(
+		cookies=None,
+		provider='agentrouter',
+		name='AgentRouter account',
+		access_token='account-access-token',
+	)
+	provider = ProviderConfig(
+		name='agentrouter',
+		domain='https://ps.air-outer.com',
+		sign_in_path=None,
+	)
+	app_config = AppConfig(providers={'agentrouter': provider})
+	captured = {}
+
+	def fake_run_check_in_requests(all_cookies, *args, **kwargs):
+		captured['cookies'] = all_cookies
+		captured['access_token'] = kwargs['access_token_override']
+		return True, None, None
+
+	monkeypatch.setattr(checkin, 'run_check_in_requests', fake_run_check_in_requests)
+
+	result = await check_in_account(account, 0, app_config)
+
+	assert result == (True, None, None)
+	assert captured == {'cookies': {}, 'access_token': 'account-access-token'}
