@@ -362,11 +362,17 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 
 	print(f'[INFO] {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
 
-	# 邮箱密码优先
+	# 账户访问令牌优先，其次是邮箱密码，最后兼容旧 Session
 	all_cookies = None
 	resolved_api_user: str | None = None
+	resolved_access_token: str | None = None
 	auth_method = None
-	if account.has_login_credentials():
+	if account.has_access_token():
+		assert account.access_token is not None
+		resolved_access_token = account.access_token.strip()
+		all_cookies = await prepare_cookies(account_name, provider_config, {})
+		auth_method = 'access token'
+	elif account.has_login_credentials():
 		print(f'[INFO] {account_name}: Attempting email/password login (priority)...')
 		assert account.email is not None and account.password is not None
 		login_result = await login_with_credentials(
@@ -402,6 +408,7 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		account_name,
 		provider_config,
 		api_user_override=resolved_api_user,
+		access_token_override=resolved_access_token,
 		use_proxy=provider_config.use_proxy,
 	)
 
@@ -413,6 +420,7 @@ def run_check_in_requests(
 	provider_config,
 	*,
 	api_user_override: str | None = None,
+	access_token_override: str | None = None,
 	use_proxy: bool = False,
 ) -> tuple[bool, dict | None, dict | None]:
 	"""执行 HTTP 签到请求（同步，避免在 async 上下文中使用阻塞 httpx）。"""
@@ -447,6 +455,9 @@ def run_check_in_requests(
 			api_user = api_user_override or account.api_user
 			if api_user:
 				headers[provider_config.api_user_key] = api_user
+			if access_token_override:
+				# One API 接受原始访问令牌；新版 New API 同时兼容该格式与 Bearer 格式。
+				headers['Authorization'] = access_token_override
 
 			user_info_url = f'{provider_config.domain}{provider_config.user_info_path}'
 			user_info_before = get_user_info(client, headers, user_info_url)

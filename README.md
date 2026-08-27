@@ -72,8 +72,7 @@
   {
     "name": "备用账号",
     "provider": "agentrouter",
-    "email": "account2@example.com",
-    "password": "account2_password"
+    "access_token": "account_access_token"
   }
 ]
 ```
@@ -81,6 +80,7 @@
 **字段说明**：
 
 - `email` + `password`：推荐的浏览器登录方式，登录成功后会自动获取 cookies 与用户标识
+- `access_token`：账户访问令牌，适合只绑定 GitHub/OAuth 的账号，不依赖短期 Session
 - `cookies`：兼容旧版的 session cookies 登录方式
 - `api_user`：session cookies 登录时用于请求头的 new-api-user 参数；邮箱密码登录可省略
 - `provider` (可选)：指定使用的服务商，默认为 `anyrouter`

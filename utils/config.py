@@ -96,14 +96,14 @@ class AppConfig:
 			),
 			'agentrouter': ProviderConfig(
 				name='agentrouter',
-				domain='https://agentrouter.org',
+				domain='https://ps.air-outer.com',
 				login_path='/login',
 				sign_in_path=None,  # 无需签到接口，查询用户信息时自动完成签到
 				user_info_path='/api/user/self',
 				api_user_key='new-api-user',
-				bypass_method='waf_cookies',
-				waf_cookie_names=['acw_tc'],
-				use_proxy=True,
+				bypass_method=None,
+				waf_cookie_names=[],
+				use_proxy=False,
 				persist_profile=False,
 			),
 		}
@@ -155,6 +155,7 @@ class AccountConfig:
 	name: str | None = None
 	email: str | None = None
 	password: str | None = None
+	access_token: str | None = None
 
 	@classmethod
 	def from_dict(cls, data: dict, index: int) -> 'AccountConfig':
@@ -169,11 +170,16 @@ class AccountConfig:
 			name=name if name else None,
 			email=data.get('email'),
 			password=data.get('password'),
+			access_token=data.get('access_token'),
 		)
 
 	def has_login_credentials(self) -> bool:
 		"""是否配置了邮箱密码登录"""
 		return bool(self.email and self.password)
+
+	def has_access_token(self) -> bool:
+		"""是否配置了账户访问令牌"""
+		return bool(self.access_token and self.access_token.strip())
 
 	def get_display_name(self, index: int) -> str:
 		"""获取显示名称"""
@@ -207,17 +213,20 @@ def load_accounts_config() -> list[AccountConfig] | None:
 
 			if 'api_user' not in account_dict:
 				has_login = account_dict.get('email') and account_dict.get('password')
-				if not has_login:
+				has_access_token = account_dict.get('access_token')
+				if not has_login and not has_access_token:
 					print(
-						f'ERROR: Account {i + 1} missing required field (api_user) - only email+password login can omit it'
+						f'ERROR: Account {i + 1} missing required field (api_user) - '
+						'email+password or access_token authentication can omit it'
 					)
 					return None
 
 			has_cookies = 'cookies' in account_dict and account_dict['cookies']
 			has_login = account_dict.get('email') and account_dict.get('password')
+			has_access_token = account_dict.get('access_token')
 
-			if not has_cookies and not has_login:
-				print(f'ERROR: Account {i + 1} must have either cookies or email+password')
+			if not has_cookies and not has_login and not has_access_token:
+				print(f'ERROR: Account {i + 1} must have cookies, email+password, or access_token')
 				return None
 
 			if 'name' in account_dict and not account_dict['name']:
