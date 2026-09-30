@@ -225,12 +225,15 @@ def load_accounts_config() -> list[AccountConfig] | None:
 			return None
 
 		accounts = []
+		provider_filter = os.getenv('CHECKIN_PROVIDER', '').strip()
 		for i, account_dict in enumerate(accounts_data):
 			if not isinstance(account_dict, dict):
 				print(f'ERROR: Account {i + 1} configuration format is incorrect')
 				return None
 
 			provider = account_dict.get('provider', 'anyrouter')
+			if provider_filter and provider != provider_filter:
+				continue
 			access_token_override = access_token_overrides.get(provider)
 			if access_token_override:
 				access_token_override = access_token_override.strip()

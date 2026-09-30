@@ -95,6 +95,8 @@ jobs:
         CHECKIN_HEADLESS: false
         CHECKIN_HUMANIZE: true
         CHECKIN_WAIT_TIMEOUT_MS: 120000
+        # Manual diagnostics target AnyRouter; scheduled runs retain their existing scope.
+        CHECKIN_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && 'anyrouter' || '' }}
         ANYROUTER_ACCOUNTS: ${{ secrets.ANYROUTER_ACCOUNTS }}
         ANYROUTER_ACCESS_TOKEN: ${{ secrets.ANYROUTER_ACCESS_TOKEN }}
         AGENTROUTER_ACCESS_TOKEN: ${{ secrets.AGENTROUTER_ACCESS_TOKEN }}
