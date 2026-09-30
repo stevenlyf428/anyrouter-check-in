@@ -38,10 +38,12 @@ def test_anyrouter_unauthorized_request_never_attempts_check_in(monkeypatch, cap
 	monkeypatch.setattr(
 		checkin.httpx, 'Client', lambda **kw: original_client(transport=httpx.MockTransport(respond), **kw)
 	)
-	account = AccountConfig(cookies={'session': 'test-session'}, api_user='16', provider='anyrouter')
+	cookies = {'session': 'test-session'}
+	account = AccountConfig(cookies=cookies, api_user='16', provider='anyrouter')
 	provider = ProviderConfig(name='anyrouter', domain='https://example.test')
-	success, before, after = checkin.run_check_in_requests(account.cookies, account, 'AnyRouter test', provider)
+	success, before, after = checkin.run_check_in_requests(cookies, account, 'AnyRouter test', provider)
 	assert not success
+	assert before is not None
 	assert before == after
 	assert [request.method for request in requests] == ['GET']
 	assert 'AUTH_USER_ID_MISMATCH' in capsys.readouterr().out
