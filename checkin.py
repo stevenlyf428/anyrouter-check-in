@@ -234,7 +234,44 @@ async def login_with_credentials(
 		return None
 
 
-def get_user_info(client, headers, user_info_url: str):
+def classify_auth_error(response) -> str:
+	"""Return a fixed diagnostic label without logging a response or credential."""
+	try:
+		data = response.json()
+	except (ValueError, TypeError):
+		return 'AUTH_RESPONSE_NOT_JSON'
+	if not isinstance(data, dict):
+		return 'AUTH_RESPONSE_UNCLASSIFIED'
+	code = data.get('code')
+	known_codes = {
+		'AUTH_UNAUTHORIZED',
+		'AUTH_SESSION_REVOKED',
+		'AUTH_TOKEN_EXPIRED',
+		'ACCESS_TOKEN_EXPIRED',
+		'AUTH_SESSION_REQUIRED',
+		'AUTH_INTERNAL_ERROR',
+	}
+	if isinstance(code, str) and code in known_codes:
+		return code
+	message = data.get('message', data.get('msg', ''))
+	if not isinstance(message, str):
+		return 'AUTH_RESPONSE_UNCLASSIFIED'
+	compact = ''.join(message.lower().split())
+	patterns = (
+		('AUTH_USER_ID_MISMATCH', ('用户id不匹配', 'useridmismatch', 'useriddoesnotmatch')),
+		('AUTH_USER_ID_MISSING', ('用户id未提供', 'useridnotprovided', 'missinguserid')),
+		('AUTH_USER_ID_INVALID', ('用户id无效', 'invaliduserid')),
+		('AUTH_SESSION_EXPIRED', ('会话已过期', 'sessionexpired', 'tokenexpired', '令牌已过期')),
+		('AUTH_SESSION_NOT_ACCEPTED', ('未登录', 'notloggedin', 'notauthenticated', '未提供accesstoken')),
+		('AUTH_ACCOUNT_DISABLED', ('用户已被封禁', '账号已被封禁', 'userdisabled')),
+	)
+	for label, keywords in patterns:
+		if any(keyword in compact for keyword in keywords):
+			return label
+	return 'AUTH_RESPONSE_UNCLASSIFIED'
+
+
+def get_user_info(client, headers, user_info_url: str, *, safe_diagnostics: bool = False):
 	"""获取用户信息"""
 	try:
 		response = client.get(user_info_url, headers=headers, timeout=30)
@@ -261,7 +298,10 @@ def get_user_info(client, headers, user_info_url: str):
 					'used_quota': used_quota,
 					'display': f':money: Current balance: ${quota}, Used: ${used_quota}',
 				}
-		return {'success': False, 'error': f'Failed to get user info: HTTP {response.status_code}'}
+		error = f'Failed to get user info: HTTP {response.status_code}'
+		if safe_diagnostics:
+			error += f' ({classify_auth_error(response)})'
+		return {'success': False, 'status_code': response.status_code, 'error': error}
 	except Exception as e:
 		return {'success': False, 'error': f'Failed to get user info: {str(e)[:50]}...'}
 
@@ -417,6 +457,18 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		if not user_cookies:
 			print(f'[FAILED] {account_name}: Invalid configuration format')
 			return False, None, None
+		if account.provider == 'anyrouter':
+			session = user_cookies.get('session')
+			if not isinstance(session, str) or not session.strip():
+				print(f'[FAILED] {account_name}: SESSION_VALUE_MISSING')
+				return False, None, None
+			if session.startswith(('session=', '"', "'", '{')) or any(c in session for c in '\r\n;'):
+				print(f'[FAILED] {account_name}: SESSION_VALUE_FORMAT_INVALID (use only the cookie Value)')
+				return False, None, None
+			source = (
+				'ANYROUTER_SESSION_COOKIE' if os.getenv('ANYROUTER_SESSION_COOKIE', '').strip() else 'account config'
+			)
+			print(f'[AUTH] {account_name}: Session source={source}; value is not logged')
 		all_cookies = await prepare_cookies(account_name, provider_config, user_cookies)
 		auth_method = 'session cookies'
 
@@ -485,11 +537,17 @@ def run_check_in_requests(
 				headers['Authorization'] = access_token_override
 
 			user_info_url = f'{provider_config.domain}{provider_config.user_info_path}'
-			user_info_before = get_user_info(client, headers, user_info_url)
+			user_info_before = get_user_info(
+				client, headers, user_info_url, safe_diagnostics=account.provider == 'anyrouter'
+			)
 			if user_info_before and user_info_before.get('success'):
 				print(user_info_before['display'])
 			elif user_info_before:
 				print(user_info_before.get('error', 'Unknown error'))
+
+			if account.provider == 'anyrouter' and user_info_before.get('status_code') in (401, 403):
+				print(f'[FAILED] {account_name}: Authentication rejected; check-in request skipped')
+				return False, user_info_before, user_info_before
 
 			if provider_config.needs_manual_check_in():
 				success = execute_check_in(client, account_name, provider_config, headers)
